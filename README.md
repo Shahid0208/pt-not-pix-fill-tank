@@ -13,7 +13,7 @@
 
 </div>
 
-![Overall Framework](./assets/Framework.png)
+![Shadow geometry and boundary representations](./assets/Framework.png)
 
 ## Preprints
 
