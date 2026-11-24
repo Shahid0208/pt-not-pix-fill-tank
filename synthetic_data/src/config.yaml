@@ -1,0 +1,155 @@
+# Dataset Augmentation Configuration
+
+# Directory paths relative to the workspace root
+directories:
+  output_base_dir: "images"
+
+# Tank size classes. Each class is a RADIUS RANGE: the radius of every image is drawn log-uniformly inside
+# its class, and the height is drawn on its own from generation_modes.balanced.height_range, so the height
+# cannot be predicted from the radius (v1 had one fixed height per radius: R^2 = 1). The class only names
+# the output folder. Legacy fixed classes (radius + height, no radius_range) still work.
+tank_sizes:
+  small:
+    name: "Small Depot Tank"
+    radius_range: [6.0, 12.0]
+    folder: "small_r06-12"
+  medium:
+    name: "Medium Product Tank"
+    radius_range: [12.0, 20.0]
+    folder: "medium_r12-20"
+  large:
+    name: "Large Crude Tank"
+    radius_range: [20.0, 30.0]
+    folder: "large_r20-30"
+  extraLarge:
+    name: "Extra Large Strategic Tank"
+    radius_range: [30.0, 45.0]
+    folder: "extraLarge_r30-45"
+
+# Real tank-farm locations. With a date and a local solar time, the sun position is computed for the
+# place (see src/geometry.py), so only shadows that can really happen there are rendered.
+# Coordinates are approximate. ground_color is the ground RGB (0-1) used in the render.
+# utc_offset_hours (standard time, no daylight saving) only labels local_clock_time in metadata.
+# Add more places by copying a block.
+locations:
+  saudi_ras_tanura:
+    name: "Ras Tanura terminal"
+    country: "Saudi Arabia"
+    latitude: 26.64
+    longitude: 50.16
+    utc_offset_hours: 3
+    ground_color: "0.80,0.70,0.52"   # desert sand
+    vegetation: 0.05                  # 0 = bare .. 1 = lush; bare desert, almost no grass or trees
+  china_zhoushan:
+    name: "Zhoushan oil storage"
+    country: "China"
+    latitude: 29.95
+    longitude: 122.10
+    utc_offset_hours: 8
+    ground_color: "0.55,0.55,0.52"   # grey concrete / reclaimed land
+    vegetation: 0.55                  # 0 = bare .. 1 = lush; humid coast: grass verges, some trees
+  russia_primorsk:
+    name: "Primorsk oil terminal"
+    country: "Russia"
+    latitude: 60.35
+    longitude: 28.70
+    utc_offset_hours: 3
+    ground_color: "0.42,0.44,0.38"   # dark soil / grass
+    vegetation: 0.6                  # 0 = bare .. 1 = lush; boreal: grass and forest around the terminal
+    # At 60 N only sun-synchronous satellites (~10:30 local) image the site; the sunrise-to-sunset
+    # constellations (WorldView Legion, SkySat) cover only up to about 45-52 deg latitude
+    acquisition_window: [9.5, 11.5]
+  usa_cushing:
+    name: "Cushing tank farm"
+    country: "USA"
+    latitude: 35.97
+    longitude: -96.77
+    utc_offset_hours: -6
+    ground_color: "0.62,0.52,0.42"   # red Oklahoma soil
+    vegetation: 0.4                  # 0 = bare .. 1 = lush; prairie: grass, scattered trees
+  # Held-out site: appears ONLY in the test_ood_site split (generation_modes.balanced.holdout). Temperate,
+  # green and grey, unlike the four training sites.
+  netherlands_rotterdam:
+    name: "Rotterdam Europoort"
+    country: "Netherlands"
+    latitude: 51.95
+    longitude: 4.10
+    utc_offset_hours: 1
+    ground_color: "0.48,0.50,0.46"   # grey reclaimed land, wet grass
+    vegetation: 0.5
+    # At 52 N the sun never gets above ~61 deg, and mostly ~10:30 sun-synchronous imagery exists
+    acquisition_window: [9.0, 13.0]
+
+# Renders are refused when the sun is lower than this: the shadows get too long to frame and
+# the roof is fully shadowed at every fill level, so the image carries no fill information.
+sun_limits:
+  min_sun_elevation: 10.0
+
+# Render Engine Configuration
+render_settings:
+  engine: "CYCLES"  # Options: CYCLES (ray traced, default), EEVEE (leaks light through the thin tank wall)
+
+# Dataset generation (src/generate_dataset.py)
+generation_modes:
+  balanced:
+    # A fixed number of images (--total, default 1000) in which every factor is evenly spread:
+    # tank size, fill level, location (country), sun-height band, atmosphere and camera angle.
+    # Dates and times are drawn from the real sun path at each location (see src/balanced_plan.py).
+    # A band a location never reaches (Primorsk never gets above 53 deg) is filled by the others.
+    locations: ["saudi_ras_tanura", "china_zhoushan", "russia_primorsk", "usa_cushing"]
+    sun_bands: [[10, 25], [25, 40], [40, 55], [55, 70], [70, 90]]   # sun elevation, degrees
+    # Default acquisition window (local solar time) for locations without their own acquisition_window.
+    # Below ~45-52 deg latitude, WorldView Legion and SkySat image from sunrise to sunset, so 07:30-16:30 is
+    # realistic; most older archive imagery is from ~10:30 sun-synchronous satellites.
+    local_solar_time_range: [7.5, 16.5]
+    # Fill level: continuous, uniform inside one of fill_bins equal bins of fill_range (v1 used 8 fixed
+    # levels, which a regressor can snap to). Remove fill_range to go back to the fixed fill_levels list.
+    fill_range: [0.0, 1.0]
+    fill_bins: 20
+    fill_levels: [0.0, 0.10, 0.25, 0.50, 0.60, 0.75, 0.90, 1.0]   # legacy, used only without fill_range
+    # Shell height (m), drawn independently of the radius: uniform inside one of height_bins equal bins,
+    # and the bins are crossed with size class and fill level, so every radius gets every height.
+    # Neighbouring tanks also draw their heights from this range, so they do not give away the target's.
+    height_range: [9.0, 22.0]
+    height_bins: 4
+    # Satellite elevation seen from the tank (90 = straight down). Delivered imagery is mostly 0-30 deg
+    # off-nadir, i.e. about 60-90 deg elevation. The azimuth is randomised per image for tilted views.
+    # Continuous: uniform inside one of camera_elevation_bins equal bins (v1 used the 4 fixed angles
+    # below). Remove camera_elevation_range to go back to camera_angles.
+    camera_elevation_range: [60.0, 90.0]
+    camera_elevation_bins: 6
+    camera_angles:   # legacy, used only without camera_elevation_range
+      - {elevation: 90.0, azimuth: 0.0}
+      - {elevation: 80.0, azimuth: 135.0}
+      - {elevation: 70.0, azimuth: 270.0}
+      - {elevation: 60.0, azimuth: 45.0}
+    atmospheres: ["CLEAR", "HAZE", "THIN_CLOUD"]
+    # NAIP pixel scale: this share of the images is rendered directly at a ground resolution drawn from
+    # naip_mpp_range (m/px) instead of a zoom, so tanks have as many pixels as in real NAIP chips
+    # (real median ~56 px across; v1 renders had a median of 169 px because the sensor simulation
+    # blurred to 0.6 m but resized back to 800 x 600).
+    naip_scale_share: 0.5
+    naip_mpp_range: [0.5, 0.7]
+    # Per-tank variation of the labelled tank (v1: the same seal gap, no roof offset or tilt, no edge
+    # structure on every tank). The roof offset is drawn inside the seal gap, in a random direction.
+    tank_variation:
+      seal_gap_range: [0.05, 0.35]        # m, roof-to-wall gap
+      roof_tilt_range: [0.0, 0.5]         # deg, random downhill direction
+      # Visible roof-edge structure: type -> nominal height (m). Only types whose labels are exact: the seal
+      # is a flush dark ring in the rim space (outside the roof, so the inner shadow never lands on it).
+      # Raised structures (rim_plate 0.6, foam_dam 0.6, pontoon_edge 0.9 m) are NOT used: the rim's shadow
+      # lands on their tops near the wall, but the label physics (v3) puts the shadow on the deck, so their
+      # inner-shadow labels would be wrong by up to ~1 m. Add them back only once the physics models that.
+      edge_types:
+        none: 0.0
+        seal: 0.01
+      edge_height_jitter: 0.3             # +-30 % around the nominal height
+    # Held-out designs, never in train or val (tags are written into each image's metadata "holdout"):
+    # - shape: tank shapes inside these [r_lo, r_hi, h_lo, h_hi] boxes (m): an interior box and a corner
+    # - sun:   sun elevation below sun_below (deg)
+    # - site:  the locations listed here, planned as their own location_share of the images
+    holdout:
+      shape_boxes: [[25.0, 32.0, 17.0, 19.0], [38.0, 45.0, 9.0, 11.0]]
+      sun_below: 15.0
+      locations: ["netherlands_rotterdam"]
+      location_share: 0.04

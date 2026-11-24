@@ -1,0 +1,42 @@
+# YOLO26s-OBB detection recipe of the paper: imgsz 1024, oversampled real + synthetic train, Albumentations extras +
+# sensor effects, 20 epochs. Real val picks best.pt (synthetic val for synthetic-only training). Any key can be
+# overridden on the command line, e.g. data=... name=... (see README).
+
+model: yolo26s-obb.pt            # DOTA-pretrained YOLO26s-OBB
+data: data/yolo/data_mixed_os.yaml     # oversampled real train + synthetic train; val/test real
+
+project: runs/obb
+name: det_mixed
+exist_ok: true
+
+epochs: 20
+patience: 20                     # no early stop
+imgsz: 1024                      # 512 px chips upsampled 2x; a 9 px narrow tank becomes 18 px
+batch: 8                         # 1024 px uses 4x memory per image; 8 fits 11 GB (32 at 512 used 7.7 GB)
+workers: 8
+device: 0
+seed: 0
+deterministic: true
+optimizer: auto                  # Ultralytics picks MuSGD, lr 0.01, for runs over 10,000 iterations (ft20: ~80,000); effective batch 64
+cos_lr: true
+warmup_epochs: 1
+plots: true
+val: true
+
+sensor_aug: true                 # Albumentations extras (Blur, MedianBlur, ToGray, CLAHE) + Gaussian blur / noise / JPEG / downscale
+
+# Augmentation
+mosaic: 1.0
+close_mosaic: 5                  # last 5 epochs without mosaic
+mixup: 0.05
+fliplr: 0.5
+flipud: 0.5
+degrees: 0.0
+translate: 0.1
+scale: 0.3                       # zoom 0.7-1.3x (was 0.5-1.5x), so tiny tanks aren't shrunk to 4-5 px
+shear: 0.0
+perspective: 0.0
+hsv_h: 0.015
+hsv_s: 0.5
+hsv_v: 0.4
+erasing: 0.0

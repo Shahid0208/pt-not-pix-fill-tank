@@ -1,0 +1,56 @@
+# Keypoint model of the paper: ResNet-18 SimpleBaseline, 65 heatmaps, sun-aligned 256 px crops; loss = heatmap +
+# visibility + sub-pixel coordinate + displacement terms. The paper's runs used these settings with seeds 0-3.
+#   python keypoint/train.py --config keypoint/config.yaml data=<keypoint data> name=kp_r18_s0 seed=0
+data: data/keypoint_data
+project: runs/keypoint
+name: kp_r18_s0
+
+# model
+num_kp: 65
+pretrained: true
+deconv_layers: 4
+input_size: 256
+heatmap_size: 128
+sigma: 2.0
+
+# loss: L = hm_scale*L_hm + w_vis*L_vis + w_coord*L_coord + w_disp*L_disp
+hm_scale: 1000.0          # L_hm becomes ~0.2-0.8 instead of ~0.0004, so it is no longer swamped
+w_vis: 0.01               # was 0.1: the validity term was ~15x the heatmap term
+vis_detach: false         # true untested: kept as in the working v1 run (validity gradient may help early features)
+group_weights:            # shadow keypoints carry the fill signal and are the hardest
+  center: 1.0
+  rim: 1.0
+  inner_shadow: 3.0
+  ground_shadow: 2.0
+  roof_edge: 1.0
+w_coord: 0.02             # soft-argmax coordinate loss, smooth L1 in input px (refinement; 0.2 dominated the loss)
+w_disp: 0.02              # physics loss on d_k = inner - rim_inner and ground - rim (input px)
+coord_window: 6            # soft-argmax window half-size, heatmap px (3 sigma: bias < 0.01 px)
+aux_hm_gate: 0.0005        # L_coord / L_disp stay off until train L_hm < 0.0005 (blank heatmaps: 0.00077) ...
+aux_start_epoch: 1
+aux_ramp_epochs: 3         # ... then ramp linearly to full weight over 3 epochs
+
+# checkpoint: best.pt = lowest val keypoint error (best_kp.pt is the same rule, kept for compatibility)
+select_metric: val_px_err
+
+# crops (must match prepare_synthetic_kp.py)
+ctx_size: 320
+ctx_factor: 2.5
+
+# optimisation
+epochs: 35
+batch: 32
+lr: 0.001
+weight_decay: 0.0001
+warmup_epochs: 1
+amp: true
+workers: 8
+seed: 0
+limit: 0
+save_period: 5
+
+# augmentation (train only), unchanged
+aug_scale: 0.10
+aug_rot_deg: 5.0
+aug_shift: 0.05
+aug_flip: 0.5

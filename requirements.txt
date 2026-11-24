@@ -1,0 +1,19 @@
+# Tested with Python 3.12. The paper's runs used torch 2.5.1 + CUDA 11.8:
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu118
+#   pip install -r requirements.txt
+torch==2.5.1
+torchvision==0.20.1
+numpy
+opencv-python-headless
+pillow
+matplotlib
+pyyaml
+scikit-learn            # keypoint/failure_groups.py (k-means of failures)
+gdown                   # download_dataset.py (real NAIP tank dataset)
+
+# detection only
+ultralytics==8.4.174
+albumentations==2.0.8   # Ultralytics' extra augmentations (Blur, MedianBlur, ToGray, CLAHE)
+tensorboard
+
+# Rendering the synthetic data (optional; the dataset is on Zenodo) needs Blender >= 4.2 on the PATH.

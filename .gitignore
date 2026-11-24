@@ -1,0 +1,24 @@
+# data, runs and weights (the dataset is on Zenodo)
+data/
+runs/
+*.pt
+*.pth
+yolo26*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Blender / rendering outputs
+synthetic_data/blender_app/
+synthetic_data/shard*/
+synthetic_data/merged/
+synthetic_data/plan*.json
+
+.DS_Store
+synthetic_data/images*/
+synthetic_data/masks/
+synthetic_data/labels/
+synthetic_data/splits/
