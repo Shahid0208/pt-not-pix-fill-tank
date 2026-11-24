@@ -13,7 +13,7 @@
 
 </div>
 
-![Overall Framework](./Framework.png)
+![Overall Framework](./assets/Framework.png)
 
 ## Preprints
 
@@ -32,7 +32,7 @@ geometry.
 
 ## Performance on SynTank-25k
 
-![](./Performance.png)
+![](./assets/Performance.png)
 
 Fill error (MAE of the roof state φ_R) on the SynTank-25k test set, mean ± s.d. over four seeds:
 
